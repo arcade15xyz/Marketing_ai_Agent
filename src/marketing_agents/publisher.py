@@ -8,6 +8,8 @@ from pathlib import Path
 from .config import DATA_DIR, OUTPUT_DIR, append_action, read_json, timezone, write_json
 from .linkedin_client import LinkedInClient
 
+from .db import configured_session_factory, storage_backend
+from .repositories import LifecycleRepository
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Publish approved content through official APIs only.")
@@ -31,6 +33,9 @@ class Publisher:
         if platform == "reddit":
             append_action("publisher", "publish", "blocked", {"date": date, "platform": platform, "reason": "reddit_draft_only"})
             return "Publishing blocked: Reddit is draft-and-approve only in Phase 5."
+        if storage_backend() == "database":
+            return self._publish_database(date, platform, execute)
+
 
         approval = self._approval_item(date, platform)
         if approval is None:
@@ -80,6 +85,67 @@ class Publisher:
             return f"LinkedIn publish failed: {result.error or result.response_body}"
 
         return f"Unsupported platform: {platform}"
+
+    def _publish_database(self, date: str, platform: str, execute: bool) -> str:
+        with configured_session_factory()() as session:
+            lifecycle = LifecycleRepository(session)
+            run_id = f"daily-{date}"
+            content = lifecycle.content_for_run(run_id=run_id, channel=platform)
+            approval = lifecycle.approval_for_run(run_id=run_id, channel=platform)
+            if content is None or approval is None:
+                run_id = f"legacy-{date}"
+                content = lifecycle.content_for_run(run_id=run_id, channel=platform)
+                approval = lifecycle.approval_for_run(run_id=run_id, channel=platform)
+            if content is None or approval is None:
+                return f"Publishing blocked: no database approval item for {date} / {platform}."
+            if approval.status != "approved":
+                return f"Publishing blocked: approval status is {approval.status}."
+            if content.status != "queued_for_approval":
+                return f"Publishing blocked: draft status is {content.status}."
+            if not content.body.strip():
+                return "Publishing blocked: draft content is empty."
+
+            job = lifecycle.ensure_publish_job(
+                content_item_id=content.id,
+                channel=platform,
+                idempotency_key=f"{run_id}:{platform}:v{content.version}",
+            )
+            if job.status == "published":
+                return f"Publishing blocked: {date} / {platform} is already published."
+
+            if not execute:
+                lifecycle.add_publish_event(
+                    publish_job_id=job.id,
+                    status="dry_run",
+                    message="Dry-run only. Nothing was published.",
+                )
+                session.commit()
+                return f"Dry-run passed for {date} / {platform}. Add --execute to publish through the official API."
+
+            result = LinkedInClient().create_text_share(content.body)
+            job.attempts += 1
+            if result.ok:
+                job.status = "published"
+                job.external_post_id = result.post_urn
+                lifecycle.add_publish_event(
+                    publish_job_id=job.id,
+                    status="published",
+                    external_post_id=result.post_urn,
+                    message=result.response_body,
+                )
+                session.commit()
+                return f"Published to LinkedIn: {result.post_urn}"
+
+            job.status = "failed"
+            job.last_error = result.error or result.response_body
+            lifecycle.add_publish_event(
+                publish_job_id=job.id,
+                status="failed",
+                message=job.last_error,
+            )
+            session.commit()
+            return f"LinkedIn publish failed: {job.last_error}"
+
 
     def _kill_switch_enabled(self) -> bool:
         value = os.getenv("PUBLISHING_KILL_SWITCH", "true").strip().lower()

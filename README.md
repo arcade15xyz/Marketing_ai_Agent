@@ -2,7 +2,7 @@
 
 Markdown-only multi-agent content pipeline for Ftechiz Pvt. Ltd.
 
-Current phase: Phase 7. The system researches from an approved local backlog, selects a topic, drafts a master blog post, writes a technical review gate, prepares blog, LinkedIn, and Reddit drafts, queues them for local approval, can publish approved LinkedIn drafts through the official LinkedIn API only, generates weekly analytics reports, logs actions, and provides scheduler-friendly commands.
+Legacy workflow: Phase 7. Upgrade progress: database-backed daily generation, approvals, and publishing are available behind `STORAGE_BACKEND=database`; JSON remains the safe default.
 
 ## Setup
 
@@ -12,6 +12,22 @@ Start here:
 - [Operations](docs/OPERATIONS.md)
 - [Kill Switch](docs/KILL_SWITCH.md)
 
+
+## Persistence Foundation
+
+Step 2 adds SQLAlchemy models and Alembic migrations for topics, content,
+research sources, approvals, publish jobs/events, metrics, agent runs, and system
+events. Topic reservation uses PostgreSQL row locking with `SKIP LOCKED` to avoid
+concurrent duplicate selection.
+
+```powershell
+python -m pip install -e .
+python -m alembic upgrade head
+python -m src.marketing_agents.import_json --dry-run
+python -m src.marketing_agents.import_json
+```
+
+See [Setup](docs/SETUP.md) before enabling database-backed operation.
 ## Run
 
 ```powershell

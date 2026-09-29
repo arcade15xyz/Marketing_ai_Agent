@@ -3,7 +3,10 @@
 ## Requirements
 
 - Python 3.11 or newer.
-- No required third-party packages for the local pipeline.
+- Install project dependencies before using database commands.
+- PostgreSQL 14 or newer for database-backed operation.
+- Install the project dependencies with `python -m pip install -e .`.
+- JSON remains the default storage backend during this incremental step.
 - Internet access only for future API publishing or live research integrations.
 
 ## Environment
@@ -13,12 +16,49 @@ Copy `.env.example` to `.env` and fill in values as needed.
 ```powershell
 copy .env.example .env
 ```
+The application loads the repository-root `.env` file automatically.
 
 Required for local drafting:
 
 - `TIMEZONE=Asia/Calcutta`
 - `DAILY_POST_TIME=09:30`
 - `COMPANY_NAME="Ftechiz Pvt. Ltd."`
+
+
+## PostgreSQL Persistence
+
+Create a PostgreSQL database and set a Psycopg-compatible connection URL:
+
+```text
+DATABASE_URL=postgresql+psycopg://marketing:your-password@localhost:5432/marketing_ai
+```
+
+Apply the schema migration:
+
+```powershell
+python -m alembic upgrade head
+```
+
+Validate the legacy JSON import without committing it:
+
+```powershell
+python -m src.marketing_agents.import_json --dry-run
+```
+
+Import the existing backlog and lifecycle state:
+
+```powershell
+python -m src.marketing_agents.import_json
+```
+
+After the migration and import succeed, activate database-backed daily runs,
+approvals, and publishing:
+
+```text
+STORAGE_BACKEND=database
+```
+
+Metrics and analytics remain JSON-backed until the analytics migration phase.
 
 Required only for LinkedIn publishing:
 

@@ -24,8 +24,10 @@ class ResearchAgent:
 class StrategistAgent:
     """Pick one topic while avoiding immediate pillar repetition."""
 
-    def run(self, packet: ResearchPacket) -> StrategyBrief:
-        content_log = read_json(DATA_DIR / "content_log.json")
+    def run(
+        self, packet: ResearchPacket, content_log: list[dict] | None = None
+    ) -> StrategyBrief:
+        content_log = content_log if content_log is not None else read_json(DATA_DIR / "content_log.json")
         existing_for_date = next(
             (entry for entry in reversed(content_log) if entry.get("date") == packet.run_date),
             None,

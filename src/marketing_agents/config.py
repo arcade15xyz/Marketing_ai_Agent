@@ -7,11 +7,14 @@ from datetime import timedelta
 from pathlib import Path
 from typing import Any
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+from dotenv import load_dotenv
+
 
 
 ROOT = Path(__file__).resolve().parents[2]
 DATA_DIR = ROOT / "data"
 OUTPUT_DIR = ROOT / "outputs"
+load_dotenv(ROOT / ".env")
 ACTION_LOG_PATH = DATA_DIR / "action_log.json"
 
 

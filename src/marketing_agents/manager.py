@@ -4,7 +4,9 @@ from datetime import datetime
 
 from .agents import ResearchAgent, RepurposerAgent, StrategistAgent, TechnicalReviewerAgent, WriterAgent
 from .config import DATA_DIR, OUTPUT_DIR, read_json, timezone, write_json, write_text
-from .models import PipelinePaths
+from .database_pipeline import DatabasePipelineState, DatabaseRunContext
+from .db import configured_session_factory, storage_backend
+from .models import PipelinePaths, ResearchPacket
 from .rendering import (
     render_approval_manifest,
     render_draft,
@@ -19,16 +21,33 @@ from .rendering import (
 class ManagerAgent:
     """Coordinate specialist agents without doing their lane work."""
 
-    def __init__(self) -> None:
+    def __init__(self, database_state: DatabasePipelineState | None = None) -> None:
         self.research_agent = ResearchAgent()
         self.strategist_agent = StrategistAgent()
         self.writer_agent = WriterAgent()
+        self.database_state = database_state
+        if self.database_state is None and storage_backend() == "database":
+            self.database_state = DatabasePipelineState(configured_session_factory())
         self.reviewer_agent = TechnicalReviewerAgent()
         self.repurposer_agent = RepurposerAgent()
 
     def run(self, run_date: str | None = None) -> PipelinePaths:
-        if run_date is None:
-            run_date = datetime.now(timezone()).date().isoformat()
+        resolved_date = run_date or datetime.now(timezone()).date().isoformat()
+        if self.database_state is None:
+            return self._run_pipeline(resolved_date)
+
+        database_run = self.database_state.reserve(resolved_date)
+        try:
+            return self._run_pipeline(resolved_date, database_run)
+        except Exception as exc:
+            self.database_state.fail(database_run, exc)
+            raise
+
+    def _run_pipeline(
+        self,
+        run_date: str,
+        database_run: DatabaseRunContext | None = None,
+    ) -> PipelinePaths:
 
         output_dir = OUTPUT_DIR / run_date
         paths = PipelinePaths(
@@ -45,10 +64,13 @@ class ManagerAgent:
             package=output_dir / "PACKAGE.md",
         )
 
-        packet = self.research_agent.run(run_date)
+        packet = (
+            ResearchPacket(run_date=run_date, candidates=[database_run.topic])
+            if database_run else self.research_agent.run(run_date)
+        )
         write_text(paths.research, render_research(packet))
 
-        brief = self.strategist_agent.run(packet)
+        brief = self.strategist_agent.run(packet, content_log=[] if database_run else None)
         write_text(paths.strategy, render_strategy(brief))
 
         draft = self.writer_agent.run(brief)
@@ -67,10 +89,14 @@ class ManagerAgent:
                 write_text(paths.reddit, render_platform_draft(platform_draft))
 
         write_text(paths.approval, render_approval_manifest(run_date, repurposed, review))
-        self._record_approval_state(run_date, repurposed)
+        if database_run is None:
+            self._record_approval_state(run_date, repurposed)
 
         write_text(paths.package, render_package(packet, brief, draft, review, repurposed))
-        self._record_content_log(run_date, brief, review.status)
+        if database_run is None:
+            self._record_content_log(run_date, brief, review.status)
+        else:
+            self.database_state.complete(database_run, draft, review, repurposed)
 
         return paths
 
