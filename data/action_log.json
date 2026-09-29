@@ -1,0 +1,33 @@
+[
+  {
+    "timestamp": "2026-09-28T18:44:49+05:30",
+    "agent": "manager",
+    "action": "scheduled_daily",
+    "result": "success",
+    "details": {
+      "date": "2026-09-28",
+      "output_dir": "E:\\MyProjects\\Marketing-Ai-agent\\outputs\\2026-09-28"
+    }
+  },
+  {
+    "timestamp": "2026-09-28T18:44:49+05:30",
+    "agent": "analytics",
+    "action": "scheduled_weekly",
+    "result": "success",
+    "details": {
+      "week_start": "2026-09-28",
+      "path": "E:\\MyProjects\\Marketing-Ai-agent\\outputs\\reports\\weekly-2026-09-28.md"
+    }
+  },
+  {
+    "timestamp": "2026-09-28T18:44:49+05:30",
+    "agent": "publisher",
+    "action": "publish",
+    "result": "blocked",
+    "details": {
+      "date": "2026-09-28",
+      "platform": "linkedin",
+      "reason": "kill_switch"
+    }
+  }
+]

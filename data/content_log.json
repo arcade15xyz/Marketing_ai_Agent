@@ -1,0 +1,12 @@
+[
+  {
+    "date": "2026-09-28",
+    "topic": "Android.bp mistakes that slow down platform teams",
+    "pillar": "Build system",
+    "format": "mistake I made / lesson learned",
+    "platform": "blog",
+    "url": "",
+    "metrics": {},
+    "status": "draft:pass"
+  }
+]

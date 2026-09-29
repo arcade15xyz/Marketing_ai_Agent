@@ -1,0 +1,10 @@
+[project]
+name = "aosp-marketing-agents"
+version = "0.1.0"
+description = "Markdown-only multi-agent content pipeline for AOSP engineering marketing."
+requires-python = ">=3.11"
+dependencies = []
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+

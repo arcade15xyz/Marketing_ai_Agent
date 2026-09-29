@@ -1,0 +1,17 @@
+{
+  "technical_authorities": [
+    "source.android.com",
+    "android.googlesource.com",
+    "developer.android.com"
+  ],
+  "news_context_only": [
+    "lwn.net",
+    "phoronix.com",
+    "androidauthority.com"
+  ],
+  "community_public_sources": [
+    "groups.google.com",
+    "issuetracker.google.com"
+  ]
+}
+

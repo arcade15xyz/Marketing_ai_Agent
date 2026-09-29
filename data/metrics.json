@@ -1,0 +1,21 @@
+[
+  {
+    "date": "2026-09-28",
+    "platform": "linkedin",
+    "url": "",
+    "note": "Placeholder until live metrics are available.",
+    "recorded_at": "2026-09-28T18:41:54+05:30",
+    "metrics": {
+      "impressions": 0,
+      "views": 0,
+      "clicks": 0,
+      "reactions": 0,
+      "comments": 0,
+      "shares": 0,
+      "profile_views": 0,
+      "inbound_dms": 0,
+      "newsletter_signups": 0,
+      "leads": 0
+    }
+  }
+]

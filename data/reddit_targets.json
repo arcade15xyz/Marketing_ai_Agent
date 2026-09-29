@@ -1,0 +1,38 @@
+[
+  {
+    "subreddit": "r/androiddev",
+    "status": "rules_check_required",
+    "posting_mode": "manual_approval_only",
+    "notes": "Use only for technical discussion that fits the current rules. Avoid service promotion."
+  },
+  {
+    "subreddit": "r/AOSP",
+    "status": "rules_check_required",
+    "posting_mode": "manual_approval_only",
+    "notes": "Check activity level and current rules before posting."
+  },
+  {
+    "subreddit": "r/embedded",
+    "status": "rules_check_required",
+    "posting_mode": "manual_approval_only",
+    "notes": "Only use when the post is clearly embedded-systems relevant."
+  },
+  {
+    "subreddit": "r/LineageOS",
+    "status": "rules_check_required",
+    "posting_mode": "manual_approval_only",
+    "notes": "Do not post business promotion. Use only if directly relevant to community discussion."
+  },
+  {
+    "subreddit": "r/AndroidQuestions",
+    "status": "rules_check_required",
+    "posting_mode": "manual_approval_only",
+    "notes": "Prefer helpful comments over standalone posts."
+  },
+  {
+    "subreddit": "r/kernel",
+    "status": "rules_check_required",
+    "posting_mode": "manual_approval_only",
+    "notes": "Use only for kernel-specific Android topics."
+  }
+]

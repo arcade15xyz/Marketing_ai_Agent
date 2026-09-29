@@ -1,0 +1,277 @@
+[
+  {
+    "pillar": "Architecture deep dives",
+    "topic": "Why the AOSP system/vendor boundary decides upgrade cost",
+    "angle": "Treat partition boundaries as long-term product architecture, not cleanup work.",
+    "format": "deep dive",
+    "sources": [
+      "https://source.android.com/docs/core/architecture",
+      "https://source.android.com/docs/core/architecture/partitions",
+      "https://source.android.com/docs/core/architecture/hal"
+    ]
+  },
+  {
+    "pillar": "Architecture deep dives",
+    "topic": "AIDL HALs as contracts, not plumbing",
+    "angle": "Explain why interface stability and VINTF declarations matter for device maintenance.",
+    "format": "myth vs reality",
+    "sources": [
+      "https://source.android.com/docs/core/architecture/aidl/aidl-hals"
+    ]
+  },
+  {
+    "pillar": "Build system",
+    "topic": "Android.bp mistakes that slow down platform teams",
+    "angle": "Show how unclear module ownership causes avoidable build churn.",
+    "format": "mistake I made / lesson learned",
+    "sources": [
+      "https://source.android.com/docs/setup/build"
+    ]
+  },
+  {
+    "pillar": "Build system",
+    "topic": "Lunch targets are product decisions",
+    "angle": "Connect build variants and product configuration to repeatable device delivery.",
+    "format": "checklist",
+    "sources": [
+      "https://source.android.com/docs/setup/build/building"
+    ]
+  },
+  {
+    "pillar": "Security",
+    "topic": "SELinux policy is where Android customization becomes honest",
+    "angle": "Explain why permissive policy hides architecture problems.",
+    "format": "short opinion",
+    "sources": [
+      "https://source.android.com/docs/security/features/selinux"
+    ]
+  },
+  {
+    "pillar": "Security",
+    "topic": "AVB is not a checkbox for production Android devices",
+    "angle": "Frame verified boot as part of product trust and update safety.",
+    "format": "deep dive",
+    "sources": [
+      "https://source.android.com/docs/security/features/verifiedboot"
+    ]
+  },
+  {
+    "pillar": "Customization",
+    "topic": "Custom ROM work becomes expensive when product logic leaks everywhere",
+    "angle": "Describe how to keep product-specific changes maintainable.",
+    "format": "checklist",
+    "sources": [
+      "https://source.android.com/docs/core/architecture/partitions"
+    ]
+  },
+  {
+    "pillar": "Customization",
+    "topic": "BSP bring-up is not finished when the board boots",
+    "angle": "Explain the gap between booting once and building a maintainable Android product.",
+    "format": "short opinion",
+    "sources": [
+      "https://source.android.com/docs/core/architecture",
+      "https://source.android.com/docs/compatibility"
+    ]
+  },
+  {
+    "pillar": "Boot/OTA",
+    "topic": "Why init.rc changes deserve architecture review",
+    "angle": "Show how service startup choices affect debugging and upgrades.",
+    "format": "step-by-step how-to with code/commands",
+    "sources": [
+      "https://source.android.com/docs/core/architecture/init"
+    ]
+  },
+  {
+    "pillar": "Boot/OTA",
+    "topic": "A/B OTA planning starts before the first release",
+    "angle": "Explain why partition layout and update strategy cannot be postponed.",
+    "format": "checklist",
+    "sources": [
+      "https://source.android.com/docs/core/ota/ab"
+    ]
+  },
+  {
+    "pillar": "Platform",
+    "topic": "AAOS customization needs a different review habit than phone Android",
+    "angle": "Position automotive Android as a long-lived platform, not a one-off image.",
+    "format": "deep dive",
+    "sources": [
+      "https://source.android.com/docs/automotive"
+    ]
+  },
+  {
+    "pillar": "Platform",
+    "topic": "Android release upgrades fail where ownership is unclear",
+    "angle": "Map upgrade pain to unclear ownership across framework, product, and vendor code.",
+    "format": "release-change breakdown",
+    "sources": [
+      "https://source.android.com/docs/setup/about/android-release"
+    ]
+  },
+  {
+    "pillar": "Debugging",
+    "topic": "Logcat is useful only when you know which layer owns the failure",
+    "angle": "Teach a layer-first debugging approach for Android platform problems.",
+    "format": "step-by-step how-to with code/commands",
+    "sources": [
+      "https://developer.android.com/tools/logcat"
+    ]
+  },
+  {
+    "pillar": "Debugging",
+    "topic": "Tombstones tell you more when you read them with the build in mind",
+    "angle": "Connect native crash analysis to symbols, builds, and ownership.",
+    "format": "deep dive",
+    "sources": [
+      "https://source.android.com/docs/core/tests/debug/native-crash"
+    ]
+  },
+  {
+    "pillar": "Industry",
+    "topic": "How to read Android platform changes without overreacting",
+    "angle": "Separate engineering implications from headline noise.",
+    "format": "short opinion",
+    "sources": [
+      "https://source.android.com/docs/setup/about/android-release"
+    ]
+  },
+  {
+    "pillar": "Architecture deep dives",
+    "topic": "Binder is not just IPC; it shapes Android platform boundaries",
+    "angle": "Explain Binder as an architectural constraint for service design.",
+    "format": "deep dive",
+    "sources": [
+      "https://source.android.com/docs/core/architecture"
+    ]
+  },
+  {
+    "pillar": "Build system",
+    "topic": "Build optimization starts with dependency discipline",
+    "angle": "Show why build graph hygiene matters before buying bigger machines.",
+    "format": "checklist",
+    "sources": [
+      "https://source.android.com/docs/setup/build"
+    ]
+  },
+  {
+    "pillar": "Security",
+    "topic": "Security hardening should not be a final sprint",
+    "angle": "Explain how late security work exposes earlier architecture shortcuts.",
+    "format": "mistake I made / lesson learned",
+    "sources": [
+      "https://source.android.com/docs/security"
+    ]
+  },
+  {
+    "pillar": "Customization",
+    "topic": "Device trees are product knowledge in code form",
+    "angle": "Frame device configuration as a maintainability asset.",
+    "format": "short opinion",
+    "sources": [
+      "https://source.android.com/docs/setup/build"
+    ]
+  },
+  {
+    "pillar": "Boot/OTA",
+    "topic": "Recovery is not where OTA strategy begins",
+    "angle": "Discuss update design as a system-wide planning problem.",
+    "format": "myth vs reality",
+    "sources": [
+      "https://source.android.com/docs/core/ota"
+    ]
+  },
+  {
+    "pillar": "Platform",
+    "topic": "Embedded Android needs boring lifecycle engineering",
+    "angle": "Explain why maintainability beats clever patches in long-lived devices.",
+    "format": "short opinion",
+    "sources": [
+      "https://source.android.com/docs/core/architecture"
+    ]
+  },
+  {
+    "pillar": "Debugging",
+    "topic": "Perfetto is most useful when the question is specific",
+    "angle": "Show how to turn vague performance complaints into traceable hypotheses.",
+    "format": "step-by-step how-to with code/commands",
+    "sources": [
+      "https://perfetto.dev/docs",
+      "https://developer.android.com/topic/performance/tracing"
+    ]
+  },
+  {
+    "pillar": "Industry",
+    "topic": "Compatibility is a product constraint, not a test at the end",
+    "angle": "Explain how CTS/VTS thinking should shape engineering choices early.",
+    "format": "checklist",
+    "sources": [
+      "https://source.android.com/docs/compatibility"
+    ]
+  },
+  {
+    "pillar": "Architecture deep dives",
+    "topic": "System services should not become a dumping ground",
+    "angle": "Talk about ownership and lifecycle when adding framework behavior.",
+    "format": "mistake I made / lesson learned",
+    "sources": [
+      "https://source.android.com/docs/core/architecture"
+    ]
+  },
+  {
+    "pillar": "Build system",
+    "topic": "Reproducible builds are a team behavior",
+    "angle": "Connect environment consistency, build scripts, and release confidence.",
+    "format": "checklist",
+    "sources": [
+      "https://source.android.com/docs/setup/build"
+    ]
+  },
+  {
+    "pillar": "Security",
+    "topic": "Vendor services need SELinux design, not exception piles",
+    "angle": "Explain why policy design reveals service ownership problems.",
+    "format": "deep dive",
+    "sources": [
+      "https://source.android.com/docs/security/features/selinux"
+    ]
+  },
+  {
+    "pillar": "Customization",
+    "topic": "OEM patches should have an exit strategy",
+    "angle": "Show why every patch needs ownership, reason, and upgrade plan.",
+    "format": "checklist",
+    "sources": [
+      "https://source.android.com/docs/setup/about/android-release"
+    ]
+  },
+  {
+    "pillar": "Boot/OTA",
+    "topic": "Virtual A/B changes how teams should think about space and updates",
+    "angle": "Explain update tradeoffs for product planning.",
+    "format": "release-change breakdown",
+    "sources": [
+      "https://source.android.com/docs/core/ota/virtual_ab"
+    ]
+  },
+  {
+    "pillar": "Platform",
+    "topic": "Android for IoT products is platform work, not app work",
+    "angle": "Explain the hidden maintenance surface below the launcher.",
+    "format": "short opinion",
+    "sources": [
+      "https://source.android.com/docs/core/architecture"
+    ]
+  },
+  {
+    "pillar": "Debugging",
+    "topic": "A real Android debug habit starts by naming the failing boundary",
+    "angle": "Teach a repeatable first-pass debugging checklist.",
+    "format": "checklist",
+    "sources": [
+      "https://source.android.com/docs/core/tests/debug"
+    ]
+  }
+]
+

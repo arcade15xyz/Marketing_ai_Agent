@@ -1,0 +1,35 @@
+[
+  {
+    "date": "2026-09-28",
+    "platform": "blog",
+    "title": "Android.bp mistakes that slow down platform teams",
+    "draft_status": "queued_for_approval",
+    "approval_status": "pending",
+    "publishing_enabled": false,
+    "publish_status": "not_published",
+    "published_url": "",
+    "decision_note": ""
+  },
+  {
+    "date": "2026-09-28",
+    "platform": "linkedin",
+    "title": "Android.bp mistakes that slow down platform teams",
+    "draft_status": "queued_for_approval",
+    "approval_status": "pending",
+    "publishing_enabled": false,
+    "publish_status": "not_published",
+    "published_url": "",
+    "decision_note": ""
+  },
+  {
+    "date": "2026-09-28",
+    "platform": "reddit",
+    "title": "Android.bp mistakes that slow down platform teams",
+    "draft_status": "needs_rules_check",
+    "approval_status": "pending",
+    "publishing_enabled": false,
+    "publish_status": "not_published",
+    "published_url": "",
+    "decision_note": ""
+  }
+]
