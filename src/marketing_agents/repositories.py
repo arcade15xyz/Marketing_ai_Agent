@@ -17,7 +17,190 @@ from .db_models import (
     ResearchSourceRecord,
     SystemEventRecord,
     TopicRecord,
+    WeeklyBatchRecord,
 )
+from .models import ContentSourceMode, WeeklyBatchSpec, WeeklyBatchStatus
+
+class WeeklyBatchStateError(RuntimeError):
+    """Raised when a weekly batch transition is invalid."""
+
+class WeeklyBatchValidationError(RuntimeError):
+    """Raised when a weekly batch is incomplete or inconsistent."""
+
+
+class WeeklyBatchRepository:
+    _TRANSITIONS = {
+        "draft": {"validating", "incomplete", "failed", "cancelled", "replaced"},
+        "validating": {
+            "pending_approval",
+            "incomplete",
+            "failed",
+            "cancelled",
+            "replaced",
+        },
+        "pending_approval": {
+            "ready",
+            "incomplete",
+            "failed",
+            "cancelled",
+            "replaced",
+        },
+        "ready": {"publishing", "cancelled", "replaced"},
+        "publishing": {"completed", "failed", "cancelled"},
+        "incomplete": {"draft", "cancelled", "replaced"},
+        "failed": {"draft", "cancelled", "replaced"},
+        "completed": {"replaced"},
+        "cancelled": set(),
+        "replaced": set(),
+    }
+
+    def __init__(self, session: Session) -> None:
+        self.session = session
+
+    def create(
+        self,
+        spec: WeeklyBatchSpec,
+        *,
+        configuration: Mapping[str, Any] | None = None,
+    ) -> WeeklyBatchRecord:
+        existing = self.latest_for_week(spec.week_start)
+        if existing is not None:
+            return existing
+        return self._create_record(spec, version=1, configuration=configuration)
+
+    def latest_for_week(self, week_start: date) -> WeeklyBatchRecord | None:
+        return self.session.scalar(
+            select(WeeklyBatchRecord)
+            .where(WeeklyBatchRecord.week_start == week_start)
+            .order_by(WeeklyBatchRecord.version.desc())
+            .limit(1)
+        )
+
+    def get(self, batch_id: str) -> WeeklyBatchRecord:
+        batch = self.session.get(WeeklyBatchRecord, batch_id)
+        if batch is None:
+            raise WeeklyBatchValidationError(f"Weekly batch not found: {batch_id}")
+        return batch
+
+    def replace(
+        self,
+        batch_id: str,
+        spec: WeeklyBatchSpec,
+        *,
+        configuration: Mapping[str, Any] | None = None,
+    ) -> WeeklyBatchRecord:
+        current = self.get(batch_id)
+        latest = self.latest_for_week(current.week_start)
+        if latest is None or latest.id != current.id:
+            raise WeeklyBatchStateError("Only the latest weekly batch version can be replaced.")
+        if spec.week_start != current.week_start:
+            raise WeeklyBatchValidationError(
+                "A replacement must use the same week_start as the existing batch."
+            )
+        current.status = WeeklyBatchStatus.REPLACED.value
+        current.finalized_at = datetime.now(UTC)
+        replacement = self._create_record(
+            spec,
+            version=current.version + 1,
+            configuration=configuration,
+        )
+        self.session.flush()
+        return replacement
+
+    def transition(
+        self,
+        batch_id: str,
+        target: WeeklyBatchStatus | str,
+        *,
+        reason: str = "",
+    ) -> WeeklyBatchRecord:
+        batch = self.get(batch_id)
+        try:
+            target_status = WeeklyBatchStatus(target)
+        except ValueError as exc:
+            raise WeeklyBatchStateError(f"Unknown weekly batch status: {target}") from exc
+
+        if batch.status == target_status.value:
+            return batch
+        allowed = self._TRANSITIONS.get(batch.status, set())
+        if target_status.value not in allowed:
+            raise WeeklyBatchStateError(
+                f"Cannot transition weekly batch from {batch.status} "
+                f"to {target_status.value}."
+            )
+        if target_status is WeeklyBatchStatus.READY:
+            self._ensure_expected_items(batch)
+        if target_status in {
+            WeeklyBatchStatus.INCOMPLETE,
+            WeeklyBatchStatus.FAILED,
+        } and not reason.strip():
+            raise WeeklyBatchValidationError(
+                f"A reason is required when marking a batch {target_status.value}."
+            )
+
+        batch.status = target_status.value
+        batch.failure_reason = reason.strip()
+        if target_status in {
+            WeeklyBatchStatus.READY,
+            WeeklyBatchStatus.COMPLETED,
+            WeeklyBatchStatus.CANCELLED,
+            WeeklyBatchStatus.REPLACED,
+        }:
+            batch.finalized_at = datetime.now(UTC)
+        self.session.flush()
+        return batch
+
+    def master_items(self, batch_id: str) -> list[ContentItemRecord]:
+        return list(
+            self.session.scalars(
+                select(ContentItemRecord)
+                .where(
+                    ContentItemRecord.weekly_batch_id == batch_id,
+                    ContentItemRecord.parent_content_id.is_(None),
+                    ContentItemRecord.channel == "master",
+                )
+                .order_by(ContentItemRecord.batch_position)
+            )
+        )
+
+    def _ensure_expected_items(self, batch: WeeklyBatchRecord) -> None:
+        positions = {item.batch_position for item in self.master_items(batch.id)}
+        expected = set(range(1, batch.expected_item_count + 1))
+        if positions != expected:
+            raise WeeklyBatchValidationError(
+                "Weekly batch cannot become ready until every expected master "
+                f"position exists; expected {sorted(expected)}, found "
+                f"{sorted(position for position in positions if position is not None)}."
+            )
+
+    def _create_record(
+        self,
+        spec: WeeklyBatchSpec,
+        *,
+        version: int,
+        configuration: Mapping[str, Any] | None,
+    ) -> WeeklyBatchRecord:
+        snapshot = dict(configuration or {})
+        snapshot.update(
+            {
+                "source_mode": spec.source_mode.value,
+                "expected_item_count": spec.expected_item_count,
+            }
+        )
+        batch = WeeklyBatchRecord(
+            week_start=spec.week_start,
+            week_end=spec.week_end,
+            version=version,
+            source_mode=spec.source_mode.value,
+            status=WeeklyBatchStatus.DRAFT.value,
+            expected_item_count=spec.expected_item_count,
+            configuration_snapshot=snapshot,
+        )
+        self.session.add(batch)
+        self.session.flush()
+        return batch
+
+
 
 
 class TopicStateError(RuntimeError):
@@ -186,11 +369,19 @@ class LifecycleRepository:
         title: str,
         body: str,
         status: str,
+        weekly_batch_id: str | None = None,
+        source_mode: ContentSourceMode | str | None = None,
+        batch_position: int | None = None,
         topic_id: str | None = None,
         parent_content_id: str | None = None,
         version: int = 1,
         metadata: Mapping[str, Any] | None = None,
     ) -> ContentItemRecord:
+        resolved_source_mode = (
+            source_mode.value
+            if isinstance(source_mode, ContentSourceMode)
+            else source_mode
+        )
         existing = self.session.scalar(
             select(ContentItemRecord).where(
                 ContentItemRecord.run_id == run_id,
@@ -199,10 +390,48 @@ class LifecycleRepository:
             )
         )
         if existing is not None:
+            if (
+                weekly_batch_id is not None
+                and existing.weekly_batch_id != weekly_batch_id
+            ):
+                raise WeeklyBatchValidationError(
+                    "An existing content item cannot be moved to another weekly batch."
+                )
+            if resolved_source_mode is not None and (
+                existing.source_mode != resolved_source_mode
+            ):
+                raise WeeklyBatchValidationError(
+                    "An existing content item's source mode cannot be changed."
+                )
             return existing
+
+        if weekly_batch_id is None:
+            if batch_position is not None:
+                raise WeeklyBatchValidationError(
+                    "batch_position requires a weekly_batch_id."
+                )
+        else:
+            batch = WeeklyBatchRepository(self.session).get(weekly_batch_id)
+            if batch_position is None:
+                raise WeeklyBatchValidationError(
+                    "Weekly batch content requires a batch_position."
+                )
+            if not 1 <= batch_position <= batch.expected_item_count:
+                raise WeeklyBatchValidationError(
+                    "batch_position must be within the batch's expected item count."
+                )
+            if resolved_source_mode is None:
+                resolved_source_mode = batch.source_mode
+            if resolved_source_mode != batch.source_mode:
+                raise WeeklyBatchValidationError(
+                    "Content source mode must match its weekly batch."
+                )
 
         item = ContentItemRecord(
             run_id=run_id,
+            weekly_batch_id=weekly_batch_id,
+            source_mode=resolved_source_mode,
+            batch_position=batch_position,
             topic_id=topic_id,
             parent_content_id=parent_content_id,
             channel=channel,

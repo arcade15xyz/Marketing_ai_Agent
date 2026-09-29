@@ -7,6 +7,7 @@ from uuid import uuid4
 
 from sqlalchemy import (
     JSON,
+    CheckConstraint,
     Date,
     DateTime,
     ForeignKey,
@@ -56,16 +57,52 @@ class TopicRecord(TimestampMixin, Base):
     failure_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
 
 
+class WeeklyBatchRecord(TimestampMixin, Base):
+    __tablename__ = "weekly_batches"
+    __table_args__ = (
+        UniqueConstraint("week_start", "version", name="uq_weekly_batch_start_version"),
+        CheckConstraint(
+            "expected_item_count BETWEEN 1 AND 7",
+            name="ck_weekly_batch_expected_item_count",
+        ),
+        Index("ix_weekly_batches_status_start", "status", "week_start"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    week_start: Mapped[date] = mapped_column(Date, nullable=False)
+    week_end: Mapped[date] = mapped_column(Date, nullable=False)
+    version: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+    source_mode: Mapped[str] = mapped_column(String(16), nullable=False)
+    status: Mapped[str] = mapped_column(String(32), default="draft", nullable=False)
+    expected_item_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    configuration_snapshot: Mapped[dict[str, Any]] = mapped_column(
+        JSON, default=dict, nullable=False
+    )
+    failure_reason: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    finalized_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
 class ContentItemRecord(TimestampMixin, Base):
     __tablename__ = "content_items"
     __table_args__ = (
         UniqueConstraint("run_id", "channel", "version", name="uq_content_run_channel_version"),
+        UniqueConstraint(
+            "weekly_batch_id",
+            "batch_position",
+            "channel",
+            "version",
+            name="uq_content_batch_position_channel_version",
+        ),
         Index("ix_content_items_status_channel", "status", "channel"),
+        Index("ix_content_items_batch_position", "weekly_batch_id", "batch_position"),
     )
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
     run_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
     topic_id: Mapped[str | None] = mapped_column(ForeignKey("topics.id"))
+    weekly_batch_id: Mapped[str | None] = mapped_column(ForeignKey("weekly_batches.id"))
+    source_mode: Mapped[str | None] = mapped_column(String(16))
+    batch_position: Mapped[int | None] = mapped_column(Integer)
     parent_content_id: Mapped[str | None] = mapped_column(ForeignKey("content_items.id"))
     channel: Mapped[str] = mapped_column(String(40), nullable=False)
     title: Mapped[str] = mapped_column(String(500), nullable=False)

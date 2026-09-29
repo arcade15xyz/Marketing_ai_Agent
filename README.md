@@ -28,6 +28,26 @@ python -m src.marketing_agents.import_json
 ```
 
 See [Setup](docs/SETUP.md) before enabling database-backed operation.
+
+## FastAPI Service
+
+The API uses the same PostgreSQL records as the generation workflow. Apply
+migrations and set `STORAGE_BACKEND=database` and `DATABASE_URL`, then start it:
+
+```powershell
+python -m alembic upgrade head
+python -m uvicorn src.marketing_agents.api:app --reload
+```
+
+Open `http://127.0.0.1:8000/docs` for the interactive OpenAPI interface.
+Available resources include health, topics, weekly batches, content, approvals,
+runs, metrics, publishing, and an analytics summary.
+
+Publishing is a dry run unless the request body contains `{"execute": true}`.
+Execution additionally requires an approved LinkedIn item, the
+`queued_for_approval` content state, and
+`PUBLISHING_KILL_SWITCH=false`. Reddit publishing remains disabled.
+
 ## Run
 
 ```powershell
