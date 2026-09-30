@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from .db_models import ApprovalRecord, ContentItemRecord
+from .db_models import ApprovalRecord, ContentItemRecord, PublishJobRecord
 from .linkedin_client import LinkedInClient
 from .repositories import LifecycleRepository
 
@@ -61,7 +61,14 @@ class DatabaseContentPublisher:
         self.session = session
         self.client_factory = client_factory
 
-    def publish(self, content_item_id: str, *, execute: bool) -> PublishOutcome:
+    def publish(
+        self,
+        content_item_id: str,
+        *,
+        execute: bool,
+        publish_job_id: str | None = None,
+        environ: Mapping[str, str] | None = None,
+    ) -> PublishOutcome:
         content = self.session.get(ContentItemRecord, content_item_id)
         if content is None:
             raise ApiResourceNotFoundError(
@@ -96,11 +103,22 @@ class DatabaseContentPublisher:
             raise ApiConflictError("Publishing requires non-empty content.")
 
         lifecycle = LifecycleRepository(self.session)
-        job = lifecycle.ensure_publish_job(
-            content_item_id=content.id,
-            channel=content.channel,
-            idempotency_key=f"{content.id}:{content.channel}:v{content.version}",
-        )
+        if publish_job_id is None:
+            job = lifecycle.ensure_publish_job(
+                content_item_id=content.id,
+                channel=content.channel,
+                idempotency_key=f"{content.id}:{content.channel}:v{content.version}",
+            )
+        else:
+            job = self.session.get(PublishJobRecord, publish_job_id)
+            if job is None:
+                raise ApiResourceNotFoundError(
+                    f"Publish job not found: {publish_job_id}"
+                )
+            if job.content_item_id != content.id or job.channel != content.channel:
+                raise ApiConflictError(
+                    "Publish job does not match the requested content item."
+                )
         if job.status == "published":
             raise ApiConflictError("This content item has already been published.")
 
@@ -118,7 +136,7 @@ class DatabaseContentPublisher:
                 message="Dry-run passed. Send execute=true to publish.",
             )
 
-        if publishing_kill_switch_enabled():
+        if publishing_kill_switch_enabled(environ):
             raise ApiConflictError(
                 "Publishing is blocked because PUBLISHING_KILL_SWITCH is enabled."
             )
@@ -137,6 +155,7 @@ class DatabaseContentPublisher:
 
         job.status = "published"
         job.external_post_id = result.post_urn
+        job.last_error = ""
         content.status = "published"
         lifecycle.add_publish_event(
             publish_job_id=job.id,

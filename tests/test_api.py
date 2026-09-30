@@ -136,6 +136,55 @@ class FastApiTests(unittest.TestCase):
         self.assertEqual(approval_response.json()["status"], "needs_changes")
         self.assertEqual(approval_response.json()["reviewer_notes"], "Add a source.")
 
+    def test_batch_becomes_ready_only_after_every_required_approval(self) -> None:
+        with self.factory() as session:
+            batches = WeeklyBatchRepository(session)
+            lifecycle = LifecycleRepository(session)
+            batch = batches.create(
+                WeeklyBatchSpec(
+                    week_start=date(2026, 10, 12),
+                    source_mode=ContentSourceMode.JSON,
+                    expected_item_count=2,
+                )
+            )
+            content_ids = []
+            for position in (1, 2):
+                content = lifecycle.create_content(
+                    run_id=f"weekly-2026-10-12-{position}",
+                    weekly_batch_id=batch.id,
+                    batch_position=position,
+                    channel="master",
+                    title=f"Draft {position}",
+                    body="Complete draft",
+                    status="queued_for_approval",
+                )
+                content_ids.append(content.id)
+            batches.transition(batch.id, "validating")
+            batches.transition(batch.id, "pending_approval")
+            session.commit()
+            batch_id = batch.id
+
+        synced = self.client.post(f"/batches/{batch_id}/approvals/sync")
+        first = self.client.post(
+            f"/content/{content_ids[0]}/approval",
+            json={"decision": "approved"},
+        )
+        pending = self.client.get(f"/batches/{batch_id}/approval-status")
+        second = self.client.post(
+            f"/content/{content_ids[1]}/approval",
+            json={"decision": "approved"},
+        )
+        ready = self.client.get(f"/batches/{batch_id}/approval-status")
+
+        self.assertEqual(synced.status_code, 200)
+        self.assertEqual(synced.json()["pending_count"], 2)
+        self.assertEqual(first.status_code, 200)
+        self.assertEqual(pending.json()["batch_status"], "pending_approval")
+        self.assertEqual(pending.json()["approved_count"], 1)
+        self.assertEqual(second.status_code, 200)
+        self.assertTrue(ready.json()["ready"])
+        self.assertEqual(ready.json()["batch_status"], "ready")
+
     def test_publish_is_dry_run_by_default_and_execute_is_guarded(self) -> None:
         content_id = self.create_linkedin_content()
         approved = self.client.post(

@@ -10,7 +10,12 @@ from sqlalchemy import create_engine, func, select
 from sqlalchemy.orm import sessionmaker
 
 from src.marketing_agents.content_sources import JsonWeeklyContentSource
-from src.marketing_agents.db_models import Base, ContentItemRecord, WeeklyBatchRecord
+from src.marketing_agents.db_models import (
+    ApprovalRecord,
+    Base,
+    ContentItemRecord,
+    WeeklyBatchRecord,
+)
 from src.marketing_agents.weekly_import import (
     JsonWeeklyBatchImporter,
     WeeklyImportConflictError,
@@ -154,6 +159,9 @@ class JsonWeeklyImportTests(unittest.TestCase):
         self.assertEqual(batch.status, "pending_approval")
         self.assertEqual(batch.source_mode, "json")
         self.assertEqual(len(content), 2)
+        approvals = list(self.session.scalars(select(ApprovalRecord)))
+        self.assertEqual(len(approvals), 2)
+        self.assertTrue(all(approval.status == "pending" for approval in approvals))
         self.assertEqual(content[0].body, "Complete authoritative body 1")
         self.assertEqual(content[0].metadata_json["scheduled_date"], "2026-10-05")
         self.assertEqual(
@@ -178,6 +186,10 @@ class JsonWeeklyImportTests(unittest.TestCase):
         )
         self.assertEqual(
             self.session.scalar(select(func.count(ContentItemRecord.id))),
+            2,
+        )
+        self.assertEqual(
+            self.session.scalar(select(func.count(ApprovalRecord.id))),
             2,
         )
 

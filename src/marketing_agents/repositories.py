@@ -45,7 +45,7 @@ class WeeklyBatchRepository:
             "cancelled",
             "replaced",
         },
-        "ready": {"publishing", "cancelled", "replaced"},
+        "ready": {"pending_approval", "publishing", "cancelled", "replaced"},
         "publishing": {"completed", "failed", "cancelled"},
         "incomplete": {"draft", "cancelled", "replaced"},
         "failed": {"draft", "cancelled", "replaced"},
@@ -147,6 +147,8 @@ class WeeklyBatchRepository:
             WeeklyBatchStatus.REPLACED,
         }:
             batch.finalized_at = datetime.now(UTC)
+        elif target_status is WeeklyBatchStatus.PENDING_APPROVAL:
+            batch.finalized_at = None
         self.session.flush()
         return batch
 

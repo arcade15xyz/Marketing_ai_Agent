@@ -57,6 +57,17 @@ class WeeklyBatchRead(OrmSchema):
     created_at: datetime
     updated_at: datetime
 
+class WeeklyApprovalSummaryRead(BaseModel):
+    batch_id: str
+    batch_status: str
+    required_count: int
+    approved_count: int
+    pending_count: int
+    needs_changes_count: int
+    rejected_count: int
+    missing_count: int
+    ready: bool
+
 
 class ContentItemRead(OrmSchema):
     id: str

@@ -48,37 +48,73 @@ Execution additionally requires an approved LinkedIn item, the
 `queued_for_approval` content state, and
 `PUBLISHING_KILL_SWITCH=false`. Reddit publishing remains disabled.
 
-## Run
+## Weekly Scheduler
+
+Weekly preparation requires PostgreSQL with `STORAGE_BACKEND=database`.
+
+Validate a JSON week without changing the database:
 
 ```powershell
-python -m src.marketing_agents.run_daily
+python -m src.marketing_agents.scheduler prepare-week --week-start 2026-10-05 --input data/weekly/2026-10-05.json --dry-run
 ```
 
-With an explicit date:
+Prepare and persist the complete configured week:
 
 ```powershell
-python -m src.marketing_agents.run_daily --date 2026-09-28
+python -m src.marketing_agents.scheduler prepare-week --week-start 2026-10-05 --input data/weekly/2026-10-05.json
 ```
 
-Scheduler-friendly entry point:
+In AI mode, omit `--input`. An AI dry-run checks topic capacity without calling
+the LLM provider:
 
 ```powershell
-python -m src.marketing_agents.scheduler --date 2026-09-28
+python -m src.marketing_agents.scheduler prepare-week --week-start 2026-10-05 --dry-run
 ```
 
-Daily plus weekly report:
+Process only already-scheduled, due, approved jobs. This is a dry-run unless
+`--execute` is supplied:
 
 ```powershell
-python -m src.marketing_agents.scheduler --date 2026-09-28 --weekly
+python -m src.marketing_agents.scheduler publish-due
+python -m src.marketing_agents.scheduler publish-due --execute
 ```
 
-Outputs are written to:
+Generate the existing analytics report:
 
-```text
-outputs/YYYY-MM-DD/
+```powershell
+python -m src.marketing_agents.scheduler weekly-report --week-start 2026-10-05
 ```
 
-## Approve Or Reject Drafts
+The previous daily-generation workflow remains temporarily available:
+
+```powershell
+python -m src.marketing_agents.scheduler legacy-daily --date 2026-09-28
+```
+
+Weekly preparation now creates durable pending approval records. The canonical
+master and every derivative in `queued_for_approval` must be approved before the
+batch moves to `ready`; Reddit drafts in `needs_rules_check` are excluded until
+their rules check is complete. Creating scheduled publish jobs remains a later
+step, and `publish-due` never generates content.
+
+## Weekly Approval Gate
+
+Use the FastAPI service (or its interactive `/docs` page) to review and decide
+weekly approvals:
+
+- `GET /approvals?status=pending` lists pending decisions.
+- `POST /content/{content_item_id}/approval` accepts `approved`, `rejected`, or
+  `needs_changes`, with an optional note.
+- `GET /batches/{batch_id}/approval-status` reports gate progress.
+- `POST /batches/{batch_id}/approvals/sync` backfills approval records for an
+  older weekly batch.
+
+The last required approval automatically moves `pending_approval` to `ready`.
+Changing a decision before publishing moves the batch back to
+`pending_approval`. Decisions are locked once publishing starts. Approval does
+not publish or create an external side effect.
+
+## Legacy Daily Approval
 
 Approval only updates local state. It does not publish.
 
@@ -188,7 +224,7 @@ data/publish_log.json
 
 - `src/marketing_agents/manager.py` coordinates the workflow.
 - `src/marketing_agents/agents.py` contains specialist agents.
-- `src/marketing_agents/scheduler.py` provides scheduler-friendly daily and weekly runs.
+- `src/marketing_agents/scheduler.py` prepares weekly batches and processes due publish jobs.
 - `src/marketing_agents/approval_queue.py` updates local approval decisions.
 - `src/marketing_agents/linkedin_client.py` posts text shares through LinkedIn's official API.
 - `src/marketing_agents/publisher.py` enforces approval and kill-switch checks before publishing.
@@ -202,4 +238,3 @@ data/publish_log.json
 - `data/metrics.json` stores manually recorded metrics.
 - `data/action_log.json` records system actions.
 - `outputs/` contains generated Markdown packages.
-

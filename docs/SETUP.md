@@ -84,53 +84,82 @@ Official docs:
 - https://learn.microsoft.com/en-us/linkedin/consumer/integrations/self-serve/share-on-linkedin
 - https://learn.microsoft.com/en-us/linkedin/compliance/integrations/shares/ugc-post-api
 
-## Daily Run
+## Weekly Preparation
+
+JSON mode validates and imports the supplied complete content:
 
 ```powershell
-python -m src.marketing_agents.scheduler
+python -m src.marketing_agents.scheduler prepare-week --week-start 2026-10-05 --input data/weekly/2026-10-05.json --dry-run
+python -m src.marketing_agents.scheduler prepare-week --week-start 2026-10-05 --input data/weekly/2026-10-05.json
 ```
 
-With explicit date:
+AI mode uses the configured provider. Its dry-run only checks database state and
+topic capacity, so it does not spend tokens:
 
 ```powershell
-python -m src.marketing_agents.scheduler --date 2026-09-28
+python -m src.marketing_agents.scheduler prepare-week --week-start 2026-10-05 --dry-run
+python -m src.marketing_agents.scheduler prepare-week --week-start 2026-10-05
 ```
 
-With weekly analytics:
+## Due Publishing
+
+`publish-due` never generates content. It selects only due LinkedIn jobs whose
+content is approved and queued. Without `--execute`, it records dry-run events.
 
 ```powershell
-python -m src.marketing_agents.scheduler --date 2026-09-28 --weekly
+python -m src.marketing_agents.scheduler publish-due
+python -m src.marketing_agents.scheduler publish-due --execute
 ```
+
+The execute form still requires `PUBLISHING_KILL_SWITCH=false` and valid
+LinkedIn credentials.
 
 ## Windows Task Scheduler
 
-Create a daily task that runs from this repo:
+After publish slots are created by the scheduling phase, configure a frequent
+task for due jobs:
 
 ```powershell
-python -m src.marketing_agents.scheduler
+python -m src.marketing_agents.scheduler publish-due --execute
 ```
 
-Set the task working directory to the repo root:
+Set the task working directory to the repository root. Create a separate weekly
+task for `prepare-week`, using `--input` in JSON mode.
 
-```text
-E:\MyProjects\Marketing-Ai-agent
-```
-
-For weekly reporting, create a second weekly task:
+The previous workflow remains available temporarily:
 
 ```powershell
-python -m src.marketing_agents.scheduler --weekly
+python -m src.marketing_agents.scheduler legacy-daily --date 2026-09-28
 ```
 
 ## Approval
 
-Approve a LinkedIn draft:
+Weekly JSON and AI preparation automatically create pending approval records.
+Start the FastAPI service, open `/docs`, and use:
+
+- `GET /approvals?status=pending`
+- `POST /content/{content_item_id}/approval`
+- `GET /batches/{batch_id}/approval-status`
+- `POST /batches/{batch_id}/approvals/sync` for older batches
+
+The approval request body is, for example:
+
+```json
+{"decision": "approved", "note": "Reviewed against primary sources."}
+```
+
+Every master and each derivative with status `queued_for_approval` is required.
+When all required records are approved, the batch automatically becomes
+`ready`. A changed decision returns it to `pending_approval` until publishing
+starts; publishing and terminal batch states lock approval changes.
+
+The previous daily JSON approval command remains available:
 
 ```powershell
 python -m src.marketing_agents.approval_queue --date 2026-09-28 --platform linkedin --decision approved
 ```
 
-Approval does not publish.
+Approval does not publish or create publish jobs.
 
 ## Publish LinkedIn
 
@@ -161,4 +190,3 @@ PUBLISHING_KILL_SWITCH=true
 ```
 
 The publisher refuses to run while the kill switch is enabled.
-

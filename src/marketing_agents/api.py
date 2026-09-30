@@ -1,6 +1,6 @@
 import os
 from collections.abc import Iterator
-from datetime import UTC, date, datetime
+from datetime import date
 from typing import Annotated
 
 from fastapi import Depends, FastAPI, HTTPException, Query, status
@@ -8,6 +8,11 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
 
+from .approval_workflow import (
+    ApprovalWorkflowError,
+    ApprovalWorkflowStateError,
+    WeeklyApprovalService,
+)
 from .api_schemas import (
     AgentRunRead,
     AnalyticsSummary,
@@ -22,6 +27,7 @@ from .api_schemas import (
     TopicCreate,
     TopicRead,
     WeeklyBatchRead,
+    WeeklyApprovalSummaryRead,
 )
 from .api_service import (
     ApiConflictError,
@@ -214,6 +220,40 @@ def create_app(
             raise HTTPException(status_code=404, detail="Content item not found.")
         return content
 
+    @app.get(
+        "/batches/{batch_id}/approval-status",
+        response_model=WeeklyApprovalSummaryRead,
+        tags=["approvals"],
+    )
+    def get_batch_approval_status(
+        batch_id: str,
+        session: SessionDependency,
+    ) -> WeeklyApprovalSummaryRead:
+        if session.get(WeeklyBatchRecord, batch_id) is None:
+            raise HTTPException(status_code=404, detail="Weekly batch not found.")
+        summary = WeeklyApprovalService(session).summary(batch_id)
+        return WeeklyApprovalSummaryRead(**summary.__dict__)
+
+    @app.post(
+        "/batches/{batch_id}/approvals/sync",
+        response_model=WeeklyApprovalSummaryRead,
+        tags=["approvals"],
+    )
+    def sync_batch_approvals(
+        batch_id: str,
+        session: SessionDependency,
+    ) -> WeeklyApprovalSummaryRead:
+        if session.get(WeeklyBatchRecord, batch_id) is None:
+            raise HTTPException(status_code=404, detail="Weekly batch not found.")
+        try:
+            summary = WeeklyApprovalService(session).ensure_batch_approvals(
+                batch_id
+            )
+        except ApprovalWorkflowError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+        session.commit()
+        return WeeklyApprovalSummaryRead(**summary.__dict__)
+
     @app.get("/approvals", response_model=list[ApprovalRead], tags=["approvals"])
     def list_approvals(
         session: SessionDependency,
@@ -244,16 +284,19 @@ def create_app(
         content = session.get(ContentItemRecord, content_item_id)
         if content is None:
             raise HTTPException(status_code=404, detail="Content item not found.")
-        approval = LifecycleRepository(session).ensure_approval(
-            content_item_id=content.id,
-            status=payload.decision,
-            notes=payload.note,
-            decided_at=datetime.now(UTC),
-            update_existing=True,
-        )
+        try:
+            update = WeeklyApprovalService(session).decide(
+                content.id,
+                decision=payload.decision,
+                note=payload.note,
+            )
+        except ApprovalWorkflowStateError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+        except ApprovalWorkflowError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
         session.commit()
-        session.refresh(approval)
-        return _approval_response(approval, content)
+        session.refresh(update.approval)
+        return _approval_response(update.approval, content)
 
     @app.post(
         "/content/{content_item_id}/publish",

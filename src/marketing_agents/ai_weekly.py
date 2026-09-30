@@ -8,6 +8,7 @@ from pydantic import BaseModel, ConfigDict, field_validator
 from sqlalchemy.orm import Session, sessionmaker
 
 from .agents import RepurposerAgent, TechnicalReviewerAgent
+from .approval_workflow import WeeklyApprovalService
 from .db_models import SystemEventRecord, TopicRecord
 from .llm import LLMProvider
 from .llm_tracking import DatabaseLLMRunRecorder
@@ -431,6 +432,7 @@ class AIWeeklyBatchService:
                 )
 
             batches.transition(batch.id, WeeklyBatchStatus.PENDING_APPROVAL)
+            WeeklyApprovalService(session).ensure_batch_approvals(batch.id)
             session.commit()
             return tuple(content_ids)
 

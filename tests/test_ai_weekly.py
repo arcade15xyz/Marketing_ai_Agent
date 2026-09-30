@@ -13,6 +13,7 @@ from src.marketing_agents.ai_weekly import (
 )
 from src.marketing_agents.db_models import (
     AgentRunRecord,
+    ApprovalRecord,
     Base,
     ContentItemRecord,
     SystemEventRecord,
@@ -103,6 +104,7 @@ class AIWeeklyBatchServiceTests(unittest.IsolatedAsyncioTestCase):
                 )
             )
             runs = list(session.scalars(select(AgentRunRecord)))
+            approvals = list(session.scalars(select(ApprovalRecord)))
 
         self.assertEqual(batch.status, "pending_approval")
         self.assertEqual(batch.configuration_snapshot["models"], ["fake"])
@@ -120,6 +122,15 @@ class AIWeeklyBatchServiceTests(unittest.IsolatedAsyncioTestCase):
         )
         self.assertTrue(all(item.parent_content_id is None for item in masters))
         self.assertEqual([run.status for run in runs], ["completed", "completed"])
+        self.assertEqual(len(approvals), 6)
+        self.assertTrue(all(approval.status == "pending" for approval in approvals))
+        approval_content_ids = {approval.content_item_id for approval in approvals}
+        self.assertFalse(
+            any(
+                item.channel == "reddit" and item.id in approval_content_ids
+                for item in content
+            )
+        )
 
     async def test_provider_failure_releases_all_topics_and_fails_batch(self) -> None:
         self.seed_topics(2)

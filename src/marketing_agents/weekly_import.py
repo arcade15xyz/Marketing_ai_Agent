@@ -5,6 +5,7 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
+from .approval_workflow import WeeklyApprovalService
 from .models import ContentSourceMode, WeeklyBatchResult, WeeklyBatchStatus, WeeklyContentItem
 from .repositories import LifecycleRepository, WeeklyBatchRepository
 
@@ -99,6 +100,8 @@ class JsonWeeklyBatchImporter:
                     "Validated JSON result is missing one or more batch positions."
                 )
             batches.transition(batch.id, WeeklyBatchStatus.PENDING_APPROVAL)
+
+        WeeklyApprovalService(self.session).ensure_batch_approvals(batch.id)
 
         return WeeklyImportResult(
             batch_id=batch.id,
